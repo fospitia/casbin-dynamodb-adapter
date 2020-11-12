@@ -1,0 +1,22 @@
+{
+  "name": "casbin-dynamodb-adapter",
+  "version": "0.1.0",
+  "description": "Casbin DynamoDB Adapter",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "fospitia@gmail.com",
+  "license": "MIT",
+  "dependencies": {
+    "casbin": "^5.2.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fospitia/casbin-dynamodb-adapter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fospitia/casbin-dynamodb-adapter/issues"
+  },
+  "homepage": "https://github.com/fospitia/casbin-dynamodb-adapter#readme"
+}
