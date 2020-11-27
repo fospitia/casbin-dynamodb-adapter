@@ -187,44 +187,52 @@ class CasbinDynamoDBAdapter {
    * @returns {Promise<void>}
    */
   async removeFilteredPolicy(sec, pType, fieldIndex, ...fieldValues) {
-    const items = await find(this.client, this.params);
+    const params = Object.assign({}, this.params);
+    params.FilterExpression = '#pType = :pType';
+    params.ExpressionAttributeNames = { '#pType': 'pType' };
+    params.ExpressionAttributeValues = { ':pType': pType };
 
-    const line = { pType };
     if (fieldIndex <= 0 && fieldIndex + fieldValues.length > 0 && !!fieldValues[0 - fieldIndex]) {
-      line.v0 = fieldValues[0 - fieldIndex];
+      params.FilterExpression += ' AND #v0 = :v0';
+      params.ExpressionAttributeNames['#v0'] = 'v0';
+      params.ExpressionAttributeValues[':v0'] = fieldValues[0 - fieldIndex];
     }
     if (fieldIndex <= 1 && fieldIndex + fieldValues.length > 1 && !!fieldValues[1 - fieldIndex]) {
-      line.v1 = fieldValues[1 - fieldIndex];
+      params.FilterExpression += ' AND #v1 = :v1';
+      params.ExpressionAttributeNames['#v1'] = 'v1';
+      params.ExpressionAttributeValues[':v1'] = fieldValues[1 - fieldIndex];
     }
     if (fieldIndex <= 2 && fieldIndex + fieldValues.length > 2 && !!fieldValues[2 - fieldIndex]) {
-      line.v2 = fieldValues[2 - fieldIndex];
+      params.FilterExpression += ' AND #v2 = :v2';
+      params.ExpressionAttributeNames['#v2'] = 'v2';
+      params.ExpressionAttributeValues[':v2'] = fieldValues[2 - fieldIndex];
     }
     if (fieldIndex <= 3 && fieldIndex + fieldValues.length > 3 && !!fieldValues[3 - fieldIndex]) {
-      line.v3 = fieldValues[3 - fieldIndex];
+      params.FilterExpression += ' AND #v3 = :v3';
+      params.ExpressionAttributeNames['#v3'] = 'v3';
+      params.ExpressionAttributeValues[':v3'] = fieldValues[3 - fieldIndex];
     }
     if (fieldIndex <= 4 && fieldIndex + fieldValues.length > 4 && !!fieldValues[4 - fieldIndex]) {
-      line.v4 = fieldValues[4 - fieldIndex];
+      params.FilterExpression += ' AND #v4 = :v4';
+      params.ExpressionAttributeNames['#v4'] = 'v4';
+      params.ExpressionAttributeValues[':v4'] = fieldValues[4 - fieldIndex];
     }
     if (fieldIndex <= 5 && fieldIndex + fieldValues.length > 5 && !!fieldValues[5 - fieldIndex]) {
-      line.v5 = fieldValues[5 - fieldIndex];
+      params.FilterExpression += ' AND #v5 = :v5';
+      params.ExpressionAttributeNames['#v5'] = 'v5';
+      params.ExpressionAttributeValues[':v5'] = fieldValues[5 - fieldIndex];
     }
+    console.log(params);
+
+    const items = await find(this.client, params);
 
     const requestItems = [];
     for (const item of items) {
-      if (item.pType === line.pType) {
-        if ((line.v0 != '' && line.v0 != item.v0) ||
-          (line.v1 != '' && line.v1 != item.v1) ||
-          (line.v2 != '' && line.v2 != item.v2) ||
-          (line.v3 != '' && line.v3 != item.v3) ||
-          (line.v4 != '' && line.v4 != item.v4) ||
-          (line.v5 != '' && line.v5 != item.v5)) {
-          continue;
-        }
-        const Key = {};
-        Key[this.hashKey] = item[this.hashKey];
-        keys.push({ DeleteRequest: { Key }});
-      }
+      const Key = {};
+      Key[this.hashKey] = item[this.hashKey];
+      requestItems.push({ DeleteRequest: { Key } });
     }
+    console.log(requestItems);
 
     const len = requestItems.length / 25;
     for (let x = 0, i = 0; x < len; i += 25, x++) {
