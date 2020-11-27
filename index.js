@@ -222,7 +222,6 @@ class CasbinDynamoDBAdapter {
       params.ExpressionAttributeNames['#v5'] = 'v5';
       params.ExpressionAttributeValues[':v5'] = fieldValues[5 - fieldIndex];
     }
-    console.log(params);
 
     const items = await find(this.client, params);
 
@@ -232,7 +231,52 @@ class CasbinDynamoDBAdapter {
       Key[this.hashKey] = item[this.hashKey];
       requestItems.push({ DeleteRequest: { Key } });
     }
-    console.log(requestItems);
+
+    const len = requestItems.length / 25;
+    for (let x = 0, i = 0; x < len; i += 25, x++) {
+      const params = { RequestItems: {} };
+      params.RequestItems[this.tableName] = requestItems.slice(i, i + 25);
+      await batchWrite(this.client, params);
+    }
+  }
+
+  /**
+   * 
+   * @param {string} sec 
+   * @param {string} pType 
+   * @param {Array<Array<string>>} rules
+   * @returns {Promise<void>}
+   */
+  async addPolicies(sec, pType, rules) {
+    const requestItems = [];
+    for (const rule of rules) {
+      const policy = this.savePolicyLine(pType, rule);
+      requestItems.push({ PutRequest: { Item: policy } });
+    }
+
+    const len = requestItems.length / 25;
+    for (let x = 0, i = 0; x < len; i += 25, x++) {
+      const params = { RequestItems: {} };
+      params.RequestItems[this.tableName] = requestItems.slice(i, i + 25);
+      await batchWrite(this.client, params);
+    }
+  }
+
+  /**
+   * 
+   * @param {string} sec 
+   * @param {string} pType 
+   * @param {Array<Array<string>>} rules
+   * @returns {Promise<void>}
+   */
+  async removePolicies(sec, pType, rules) {
+    const requestItems = [];
+    for (const rule of rules) {
+      const policy = this.savePolicyLine(pType, rule);
+      const Key = {};
+      Key[this.hashKey] = policy[this.hashKey];
+      requestItems.push({ DeleteRequest: { Key } });
+    }
 
     const len = requestItems.length / 25;
     for (let x = 0, i = 0; x < len; i += 25, x++) {
