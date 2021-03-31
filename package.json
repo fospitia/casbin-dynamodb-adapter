@@ -3,7 +3,9 @@
   "version": "0.2.0",
   "description": "Casbin DynamoDB Adapter",
   "main": "index.js",
+  "types": "index.d.ts",
   "scripts": {
+    "tsDeclare": "tsc index.js --declaration --allowJs --emitDeclarationOnly",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "fospitia@gmail.com",
@@ -18,5 +20,8 @@
   "bugs": {
     "url": "https://github.com/fospitia/casbin-dynamodb-adapter/issues"
   },
-  "homepage": "https://github.com/fospitia/casbin-dynamodb-adapter#readme"
+  "homepage": "https://github.com/fospitia/casbin-dynamodb-adapter#readme",
+  "devDependencies": {
+    "typescript": "4.2.3"
+  }
 }
