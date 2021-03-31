@@ -1,6 +1,6 @@
 {
   "name": "casbin-dynamodb-adapter",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Casbin DynamoDB Adapter",
   "main": "index.js",
   "types": "index.d.ts",
