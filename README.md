@@ -8,11 +8,16 @@ Based on [casbin-couchbase-adapter](https://github.com/MarkMYoung/casbin-couchba
 
 npm install casbin-dynamodb-adapter
 
+## Changes in version 0.4.x
+
+- Change in CasbinDynamoDBAdapter class import
+- New CasbinDynamoDBFilteredAdapter class based on DefaultFilteredAdapter class
+
 ## Simple Example
 
 ```js
 const Casbin = require( 'casbin' );
-const CasbinDynamoDBAdapter = require( 'casbin-dynamodb-adapter' );
+const { CasbinDynamoDBAdapter } = require( 'casbin-dynamodb-adapter' );
 const AWS = require('aws-sdk');
 
 const client = new AWS.DynamoDB.DocumentClient();

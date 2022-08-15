@@ -1,7 +1,7 @@
 'use strict';
 
-const { Helper, Model } = require('casbin');
-const crypto = require('crypto')
+const { Helper, Model, DefaultFilteredAdapter } = require('casbin');
+const { createHash } = require('crypto')
 
 /**
  * 
@@ -68,12 +68,7 @@ class CasbinDynamoDBAdapter {
     return new CasbinDynamoDBAdapter(client, tableName);
   }
 
-  /**
-   * 
-   * @param {object} policy 
-   * @param {Model} model 
-   */
-  loadPolicyLine(policy, model) {
+  policyLine(policy) {
     let line = policy.pType;
 
     if (policy.v0) {
@@ -94,6 +89,17 @@ class CasbinDynamoDBAdapter {
     if (policy.v5) {
       line += ', ' + policy.v5;
     }
+
+    return line;
+  }
+
+  /**
+   * 
+   * @param {object} policy 
+   * @param {Model} model 
+   */
+  loadPolicyLine(policy, model) {
+    const line = policyLine(policy);
 
     Helper.loadPolicyLine(line, model);
   }
@@ -122,7 +128,7 @@ class CasbinDynamoDBAdapter {
     if (this.index && this.index.hashKey && this.index.hashValue) {
       policy[this.index.hashKey] = this.index.hashValue;
     }
-    policy[this.hashKey] = crypto.createHash('md5').update(JSON.stringify(policy)).digest("hex");
+    policy[this.hashKey] = createHash('md5').update(JSON.stringify(policy)).digest("hex");
     return policy;
   }
 
@@ -287,4 +293,53 @@ class CasbinDynamoDBAdapter {
   }
 }
 
-module.exports = CasbinDynamoDBAdapter;
+/**
+ * Based on DefaultFilteredAdapter
+ */
+class CasbinDynamoDBFilteredAdapter extends CasbinDynamoDBAdapter {
+
+  constructor(client, opts = {}) {
+    super(client, opts);
+    this.filtered = false;
+  }
+
+  async loadPolicy(model) {
+    this.filtered = false;
+    await super.loadPolicy(model);
+  }
+
+  async loadFilteredPolicy(model, filter) {
+    if (!filter) {
+      await this.loadPolicy(model);
+      return;
+    }
+
+    const items = await find(this.client, this.params);
+    for (const item of items) {
+      const line = this.policyLine(item);
+
+      if (!line || DefaultFilteredAdapter.filterLine(line, filter)) {
+        continue;
+      }
+
+      Helper.loadPolicyLine(line, model);
+    }
+
+    this.filtered = true;
+  }
+
+  isFiltered() {
+    return this.filtered;
+  }
+
+  async savePolicy(model) {
+    if (this.filtered) {
+      throw new Error('cannot save a filtered policy');
+    }
+    await super.savePolicy(model);
+    return true;
+  }
+}
+
+module.exports.CasbinDynamoDBAdapter = CasbinDynamoDBAdapter;
+module.exports.CasbinDynamoDBFilteredAdapter = CasbinDynamoDBFilteredAdapter;
