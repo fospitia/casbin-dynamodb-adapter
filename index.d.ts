@@ -1,12 +1,9 @@
-import { Model } from "casbin/lib/cjs/model/model";
-import { Filter } from "casbin/lib/cjs/persist/defaultFilteredAdapter";
-
 /**
  * Implements a policy adapter for Casbin with DynamoDB support.
  *
  * @class
  */
-export declare class CasbinDynamoDBAdapter {
+export class CasbinDynamoDBAdapter {
     /**
      *
      * @param {object} client DynamoDB Document Client
@@ -26,6 +23,7 @@ export declare class CasbinDynamoDBAdapter {
         TableName: any;
     };
     index: any;
+    policyLine(policy: any): any;
     /**
      *
      * @param {object} policy
@@ -93,14 +91,23 @@ export declare class CasbinDynamoDBAdapter {
      */
     removePolicies(sec: string, pType: string, rules: Array<Array<string>>): Promise<void>;
 }
-
-export declare class CasbinDynamoDBFilteredAdapter extends CasbinDynamoDBAdapter {
-
+/**
+ * Based on DefaultFilteredAdapter
+ */
+export class CasbinDynamoDBFilteredAdapter extends CasbinDynamoDBAdapter {
+    filtered: boolean;
     /**
-     * 
-     * @param {Model} model 
-     * @param {Filter} filter 
+     *
+     * @param {Model} model Model instance from enforcer
+     * @param {Filter} filter Filter
      * @returns {Promise<void>}
      */
     loadFilteredPolicy(model: Model, filter: Filter): Promise<void>;
+    /**
+     *
+     * @returns {void}
+     */
+    isFiltered(): void;
 }
+import { Model } from "casbin/lib/cjs/model/model";
+import { Filter } from "casbin/lib/cjs/persist/defaultFilteredAdapter";

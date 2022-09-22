@@ -1,6 +1,6 @@
 'use strict';
 
-const { Helper, Model, DefaultFilteredAdapter } = require('casbin');
+const { Helper, Model, DefaultFilteredAdapter, Filter } = require('casbin');
 const { createHash } = require('crypto')
 
 /**
@@ -298,17 +298,33 @@ class CasbinDynamoDBAdapter {
  */
 class CasbinDynamoDBFilteredAdapter extends CasbinDynamoDBAdapter {
 
-  constructor(client, opts = {}) {
+  /**
+   * 
+   * @param {object} client DynamoDB Document Client
+   * @param {object} opts Options
+   */
+   constructor(client, opts = {}) {
     super(client, opts);
     this.filtered = false;
   }
 
-  async loadPolicy(model) {
+  /**
+   * 
+   * @param {Model} model Model instance from enforcer
+   * @returns {Promise<void>}
+   */
+   async loadPolicy(model) {
     this.filtered = false;
     await super.loadPolicy(model);
   }
 
-  async loadFilteredPolicy(model, filter) {
+  /**
+   * 
+   * @param {Model} model Model instance from enforcer
+   * @param {Filter} filter Filter
+   * @returns {Promise<void>}
+   */
+   async loadFilteredPolicy(model, filter) {
     if (!filter) {
       await this.loadPolicy(model);
       return;
@@ -328,11 +344,20 @@ class CasbinDynamoDBFilteredAdapter extends CasbinDynamoDBAdapter {
     this.filtered = true;
   }
 
+  /**
+   * 
+   * @returns {void}
+   */
   isFiltered() {
     return this.filtered;
   }
 
-  async savePolicy(model) {
+  /**
+   * 
+   * @param {Model} model Model instance from enforcer
+   * @returns {Promise<boolean>}
+   */
+   async savePolicy(model) {
     if (this.filtered) {
       throw new Error('cannot save a filtered policy');
     }

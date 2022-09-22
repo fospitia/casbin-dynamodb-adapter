@@ -5,7 +5,7 @@
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
-    "tsDeclare": "tsc index.js --declaration --allowJs --emitDeclarationOnly",
+    "tsDeclare": "tsc index.js --declaration --allowJs --emitDeclarationOnly --lib es6",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "fospitia@gmail.com",
