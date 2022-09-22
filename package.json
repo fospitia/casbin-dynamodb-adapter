@@ -11,7 +11,7 @@
   "author": "fospitia@gmail.com",
   "license": "MIT",
   "dependencies": {
-    "casbin": "^5.2.0"
+    "casbin": "^5.18.0"
   },
   "repository": {
     "type": "git",
@@ -22,6 +22,6 @@
   },
   "homepage": "https://github.com/fospitia/casbin-dynamodb-adapter#readme",
   "devDependencies": {
-    "typescript": "4.2.3"
+    "typescript": "4.8.3"
   }
 }

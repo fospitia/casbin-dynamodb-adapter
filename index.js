@@ -99,7 +99,7 @@ class CasbinDynamoDBAdapter {
    * @param {Model} model 
    */
   loadPolicyLine(policy, model) {
-    const line = policyLine(policy);
+    const line = this.policyLine(policy);
 
     Helper.loadPolicyLine(line, model);
   }
@@ -341,5 +341,7 @@ class CasbinDynamoDBFilteredAdapter extends CasbinDynamoDBAdapter {
   }
 }
 
-module.exports.CasbinDynamoDBAdapter = CasbinDynamoDBAdapter;
-module.exports.CasbinDynamoDBFilteredAdapter = CasbinDynamoDBFilteredAdapter;
+module.exports = {
+  CasbinDynamoDBAdapter,
+  CasbinDynamoDBFilteredAdapter
+}
