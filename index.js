@@ -1,7 +1,30 @@
 'use strict';
 
 const { Helper, Model, DefaultFilteredAdapter, Filter } = require('casbin');
-const { createHash } = require('crypto')
+const { createHash } = require('crypto');
+
+// AWS SDK v3 imports
+let DynamoDBClient, DynamoDBDocumentClient, ScanCommand, QueryCommand, PutCommand, DeleteCommand, BatchWriteCommand;
+try {
+  const dynamodbClient = require('@aws-sdk/client-dynamodb');
+  const libDynamodb = require('@aws-sdk/lib-dynamodb');
+  DynamoDBClient = dynamodbClient.DynamoDBClient;
+  DynamoDBDocumentClient = libDynamodb.DynamoDBDocumentClient;
+  ScanCommand = libDynamodb.ScanCommand;
+  QueryCommand = libDynamodb.QueryCommand;
+  PutCommand = libDynamodb.PutCommand;
+  DeleteCommand = libDynamodb.DeleteCommand;
+  BatchWriteCommand = libDynamodb.BatchWriteCommand;
+} catch (e) {
+  // AWS SDK v3 not available, will use v2 compatibility mode
+}
+
+/**
+ * Helper function to detect if client is AWS SDK v3
+ */
+const isV3Client = (client) => {
+  return client && typeof client.send === 'function' && !client.promise;
+};
 
 /**
  * 
@@ -9,7 +32,17 @@ const { createHash } = require('crypto')
  * @param {*} params 
  */
 const find = async (client, params) => {
-  const data = (params.KeyConditionExpression) ? await client.query(params).promise() : await client.scan(params).promise();
+  let data;
+  
+  if (isV3Client(client)) {
+    // AWS SDK v3
+    const command = params.KeyConditionExpression ? new QueryCommand(params) : new ScanCommand(params);
+    data = await client.send(command);
+  } else {
+    // AWS SDK v2 compatibility
+    data = params.KeyConditionExpression ? await client.query(params).promise() : await client.scan(params).promise();
+  }
+  
   if (data.LastEvaluatedKey) {
     params.ExclusiveStartKey = data.LastEvaluatedKey;
     data.Items = data.Items.concat(await find(client, params));
@@ -23,7 +56,16 @@ const find = async (client, params) => {
  * @param {*} params 
  */
 const batchWrite = async (client, params) => {
-  const data = await client.batchWrite(params).promise();
+  let data;
+  
+  if (isV3Client(client)) {
+    // AWS SDK v3
+    data = await client.send(new BatchWriteCommand(params));
+  } else {
+    // AWS SDK v2 compatibility
+    data = await client.batchWrite(params).promise();
+  }
+  
   if (Object.keys(data.UnprocessedItems).length) {
     params.RequestItems = data.UnprocessedItems;
     await batchWrite(client, params);
@@ -46,7 +88,8 @@ class CasbinDynamoDBAdapter {
   constructor(client, opts = {}) {
     this.client = client;
     this.tableName = opts.tableName;
-    this.hashKey = opts.hashKey;
+    this.hashKey = opts.hashKey || 'id';
+    this.rangeKey = opts.rangeKey;
     this.params = { TableName: opts.tableName };
     this.index = opts.index;
     if (opts.index && opts.index.name && opts.index.hashKey && opts.index.hashValue) {
@@ -60,12 +103,38 @@ class CasbinDynamoDBAdapter {
   }
 
   /**
-   * 
-   * @param {object} client DynamoDB Document Client
-   * @param {string} tableName DynamoDB Table Name
+   * Create adapter with AWS SDK v3 configuration
+   * @param {object} config Configuration object
+   * @param {string} config.region AWS region
+   * @param {string} config.tableName DynamoDB table name
+   * @param {string} [config.hashKey='id'] Hash key name
+   * @param {string} [config.rangeKey] Range key name
+   * @param {string} [config.endpoint] Custom endpoint (for LocalStack)
+   * @param {object} [config.credentials] AWS credentials
+   * @param {object} [config.index] Index configuration
    */
-  static async newAdapter(client, tableName) {
-    return new CasbinDynamoDBAdapter(client, tableName);
+  static async newAdapter(config) {
+    if (typeof config === 'string' || (config && !config.region && !config.tableName)) {
+      // Legacy v2 usage: newAdapter(client, tableName)
+      const [client, tableName] = arguments;
+      return new CasbinDynamoDBAdapter(client, { tableName });
+    }
+
+    // New v3 usage with configuration
+    if (!DynamoDBClient) {
+      throw new Error('AWS SDK v3 is required for configuration-based initialization. Install @aws-sdk/client-dynamodb and @aws-sdk/lib-dynamodb');
+    }
+
+    const { region, tableName, hashKey = 'id', rangeKey, endpoint, credentials, index } = config;
+    
+    const clientConfig = { region };
+    if (endpoint) clientConfig.endpoint = endpoint;
+    if (credentials) clientConfig.credentials = credentials;
+
+    const dynamoClient = new DynamoDBClient(clientConfig);
+    const docClient = DynamoDBDocumentClient.from(dynamoClient);
+
+    return new CasbinDynamoDBAdapter(docClient, { tableName, hashKey, rangeKey, index });
   }
 
   policyLine(policy) {
@@ -144,14 +213,22 @@ class CasbinDynamoDBAdapter {
     for (const [pType, ast] of policyRuleAST) {
       for (const rule of ast.policy) {
         const casbinPolicy = this.savePolicyLine(pType, rule);
-        await this.client.put({ TableName: this.tableName, Item: casbinPolicy }).promise();
+        if (isV3Client(this.client)) {
+          await this.client.send(new PutCommand({ TableName: this.tableName, Item: casbinPolicy }));
+        } else {
+          await this.client.put({ TableName: this.tableName, Item: casbinPolicy }).promise();
+        }
       }
     }
 
     for (const [pType, ast] of groupingPolicyAST) {
       for (const rule of ast.policy) {
         const casbinPolicy = this.savePolicyLine(pType, rule);
-        await this.client.put({ TableName: this.tableName, Item: casbinPolicy }).promise();
+        if (isV3Client(this.client)) {
+          await this.client.send(new PutCommand({ TableName: this.tableName, Item: casbinPolicy }));
+        } else {
+          await this.client.put({ TableName: this.tableName, Item: casbinPolicy }).promise();
+        }
       }
     }
 
@@ -167,7 +244,11 @@ class CasbinDynamoDBAdapter {
    */
   async addPolicy(sec, pType, rule) {
     const policy = this.savePolicyLine(pType, rule);
-    await this.client.put({ TableName: this.tableName, Item: policy }).promise();
+    if (isV3Client(this.client)) {
+      await this.client.send(new PutCommand({ TableName: this.tableName, Item: policy }));
+    } else {
+      await this.client.put({ TableName: this.tableName, Item: policy }).promise();
+    }
   }
 
   /**
@@ -181,7 +262,14 @@ class CasbinDynamoDBAdapter {
     const policy = this.savePolicyLine(pType, rule);
     const params = { TableName: this.tableName, Key: {} };
     params.Key[this.hashKey] = policy[this.hashKey];
-    await this.client.delete(params).promise();
+    if (this.rangeKey) {
+      params.Key[this.rangeKey] = policy[this.rangeKey];
+    }
+    if (isV3Client(this.client)) {
+      await this.client.send(new DeleteCommand(params));
+    } else {
+      await this.client.delete(params).promise();
+    }
   }
 
   /**
@@ -235,6 +323,9 @@ class CasbinDynamoDBAdapter {
     for (const item of items) {
       const Key = {};
       Key[this.hashKey] = item[this.hashKey];
+      if (this.rangeKey) {
+        Key[this.rangeKey] = item[this.rangeKey];
+      }
       requestItems.push({ DeleteRequest: { Key } });
     }
 
@@ -281,6 +372,9 @@ class CasbinDynamoDBAdapter {
       const policy = this.savePolicyLine(pType, rule);
       const Key = {};
       Key[this.hashKey] = policy[this.hashKey];
+      if (this.rangeKey) {
+        Key[this.rangeKey] = policy[this.rangeKey];
+      }
       requestItems.push({ DeleteRequest: { Key } });
     }
 

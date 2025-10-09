@@ -1,3 +1,20 @@
+export interface AdapterConfig {
+    region: string;
+    tableName: string;
+    hashKey?: string;
+    rangeKey?: string;
+    endpoint?: string;  // For LocalStack: 'http://localhost:4566'
+    credentials?: {     // Optional: Only needed for LocalStack or non-IAM environments
+        accessKeyId: string;
+        secretAccessKey: string;
+    };
+    index?: {
+        name: string;
+        hashKey: string;
+        hashValue: string;
+    };
+}
+
 /**
  * Implements a policy adapter for Casbin with DynamoDB support.
  *
@@ -5,10 +22,11 @@
  */
 export class CasbinDynamoDBAdapter {
     /**
-     *
-     * @param {object} client DynamoDB Document Client
-     * @param {string} tableName DynamoDB Table Name
+     * Create adapter with AWS SDK v3 configuration or legacy v2 client
+     * @param {AdapterConfig | object} config Configuration object or legacy client
+     * @param {string} [tableName] Legacy table name parameter
      */
+    static newAdapter(config: AdapterConfig): Promise<CasbinDynamoDBAdapter>;
     static newAdapter(client: object, tableName: string): Promise<CasbinDynamoDBAdapter>;
     /**
      *
@@ -19,6 +37,7 @@ export class CasbinDynamoDBAdapter {
     client: any;
     tableName: any;
     hashKey: any;
+    rangeKey: any;
     params: {
         TableName: any;
     };
